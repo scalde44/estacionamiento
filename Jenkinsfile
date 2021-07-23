@@ -7,7 +7,7 @@ pipeline {
   //Opciones específicas de Pipeline dentro del Pipeline
   options {
     	buildDiscarder(logRotator(numToKeepStr: '3'))
- 	disableConcurrentBuilds()
+ 		disableConcurrentBuilds()
   }
 
   //Una sección que define las herramientas “preinstaladas” en Jenkins
@@ -24,67 +24,73 @@ pipeline {
       JDK13_Centos
       JDK14_Centos
 */
-//Aquí comienzan los “items” del Pipeline
+
+  //Aquí comienzan los “items” del Pipeline
   stages{
-    stage('Checkout') {
-      steps{
-			echo "------------>Checkout<------------"
-			checkout([
-				$class: 'GitSCM', 
-				branches: [[name: '*/master']], 
-				doGenerateSubmoduleConfigurations: false, 
-				extensions: [], 
-				gitTool: 'Default', 
-				submoduleCfg: [], 
-				userRemoteConfigs: [[
-					credentialsId: 'GitHub_scalde44', 
-					url:'https://github.com/scalde44/estacionamiento'
+	stage('Checkout'){
+	steps{
+		echo "------------>Checkout<------------"
+		checkout([
+			$class: 'GitSCM', 
+			branches: [[name: '*/master']], 
+			doGenerateSubmoduleConfigurations: false, 
+			extensions: [], 
+			gitTool: 'Default', 
+			submoduleCfg: [], 
+			userRemoteConfigs: [[
+				credentialsId: 'GitHub_scalde44', 
+				url:'https://github.com/scalde44/estacionamiento.git'
 				]]
 			])
 		}
+	}
 
-    }
     
-    stage('Compile & Unit Tests') {
-      steps{
-        	echo "------------>compile & Unit Tests<------------"
+	stage('Compile & Unit Tests') {
+		steps{
+			sh './gradlew clean'
+			echo "------------>compile & Unit Tests<------------"
 			sh 'chmod +x gradlew'
 			sh './gradlew --b ./build.gradle test'
-      }
-    }
+		}
+	}
+
 
     stage('Static Code Analysis') {
-      steps{
-        	echo '------------>Análisis de código estático<------------'
-			withSonarQubeEnv('Sonar') {
+			steps{
+				echo '------------>Análisis de código estático<------------'
+				withSonarQubeEnv('Sonar') {
 				sh "${tool name: 'SonarScanner', type:'hudson.plugins.sonar.SonarRunnerInstallation'}/bin/sonar-scanner"
 			}
-        	
-        }
-      }
-    }
-    stage('Build') {
-      steps {
-        echo "------------>Build<------------"
-        //Construir sin tarea test que se ejecutó previamente
-		sh './gradlew --b ./build.gradle build -x test'
-      }
-    }  
-   }
+	     }
+	}
+
+
+	stage('Build') {
+		steps{
+			echo "------------>Build<------------"
+			//Construir sin tarea test que se ejecutó previamente
+			sh './gradlew --b ./build.gradle build -x test'
+		}
+	}
+ 
+  }
 
   post {
     always {
       echo 'This will always run'
     }
     success {
-	  		echo 'This will run only if successful'
-			junit 'build/test-results/test/*.xml' //RUTA DE TUS ARCHIVOS .XML
-      		
+   	 	echo 'This will run only if successful'
+		junit 'build/test-results/test/*.xml' //RUTA DE TUS ARCHIVOS .XML
+
     }
     failure {
-	      	echo 'This will run only if failed'
-			mail (to: 'steven.calderon@ceiba.com.co',subject: "Failed Pipeline:${currentBuild.fullDisplayName}",body: "Something is wrong with ${env.BUILD_URL}")
-    }
+		echo 'This will run only if failed'
+		mail (to: 'steven.calderon@ceiba.com.co',subject: "Failed Pipeline:${currentBuild.fullDisplayName}",body: "Something is wrong with ${env.BUILD_URL}")
+		
+	}
+
     unstable {
       echo 'This will run only if the run was marked as unstable'
     }
